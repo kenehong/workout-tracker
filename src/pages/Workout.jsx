@@ -6,10 +6,7 @@ import {
   updateSet,
   deleteSet,
   getSetsBySession,
-  getAllExercises,
-  getExerciseHistory,
 } from '../db/repo.js';
-import { ExercisePicker } from '../components/ExercisePicker.jsx';
 import { RestTimer } from '../components/RestTimer.jsx';
 
 // Format seconds to MM:SS
@@ -22,10 +19,7 @@ function fmtTime(sec) {
 export function Workout({ sessionId, onNavigate }) {
   const [session, setSession] = useState(null);
   const [sets, setSets] = useState([]);
-  const [exercises, setExercises] = useState([]);
-  const [exerciseMap, setExerciseMap] = useState(new Map());
   const [elapsed, setElapsed] = useState(0);
-  const [showPicker, setShowPicker] = useState(false);
   const [showTimer, setShowTimer] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -36,10 +30,9 @@ export function Workout({ sessionId, onNavigate }) {
   useEffect(() => {
     async function load() {
       try {
-        const [sess, allSets, allExercises] = await Promise.all([
+        const [sess, allSets] = await Promise.all([
           getSession(sessionId),
           getSetsBySession(sessionId),
-          getAllExercises(),
         ]);
 
         if (!sess) {
@@ -49,8 +42,6 @@ export function Workout({ sessionId, onNavigate }) {
 
         setSession(sess);
         setSets(allSets.sort((a, b) => a.setNumber - b.setNumber));
-        setExercises(allExercises);
-        setExerciseMap(new Map(allExercises.map((e) => [e.id, e])));
         startTimeRef.current = sess.startedAt;
       } finally {
         setLoading(false);
@@ -59,7 +50,7 @@ export function Workout({ sessionId, onNavigate }) {
     load();
   }, [sessionId]);
 
-  // Elapsed timer - uses Date.now() diff for background tab accuracy
+  // Elapsed timer
   useEffect(() => {
     function tick() {
       setElapsed(Math.floor((Date.now() - startTimeRef.current) / 1000));
@@ -115,25 +106,33 @@ export function Workout({ sessionId, onNavigate }) {
     return entries;
   }, [sets])();
 
-  async function handleAddExercise(exercise) {
-    setShowPicker(false);
+  // Get next exercise number
+  function getNextExerciseNumber() {
+    const usedIds = new Set(sets.map((s) => s.exerciseId));
+    return usedIds.size + 1;
+  }
 
-    // Get last history for auto-fill
-    const history = await getExerciseHistory(exercise.id, 1);
-    let weight = 0;
-    let reps = 0;
-    if (history.length > 0 && history[0].sets.length > 0) {
-      const lastSet = history[0].sets[0];
-      weight = lastSet.weight;
-      reps = lastSet.reps;
-    }
+  // Get exercise label from exerciseId (which is the exercise number)
+  function getExerciseLabel(exerciseId) {
+    const allIds = [...new Set(sets.map((s) => s.exerciseId))].sort((a, b) => {
+      // Sort by first appearance
+      const aFirst = sets.find((s) => s.exerciseId === a);
+      const bFirst = sets.find((s) => s.exerciseId === b);
+      return (aFirst?.completedAt || 0) - (bFirst?.completedAt || 0);
+    });
+    const idx = allIds.indexOf(exerciseId);
+    return `Exercise ${idx + 1}`;
+  }
 
-    const newSet = await addSet(sessionId, exercise.id, 1, weight, reps);
+  async function handleAddExercise() {
+    const exerciseNum = getNextExerciseNumber();
+    // Use exercise number as exerciseId (simple numeric)
+    const exerciseId = 9000 + exerciseNum; // Offset to avoid collision with seed exercises
+    const newSet = await addSet(sessionId, exerciseId, 1, 0, 0);
     setSets((prev) => [...prev, newSet]);
   }
 
   async function handleAddSet(exerciseId) {
-    // Find existing sets for this exercise to determine next set number + auto-fill
     const existingSets = sets.filter((s) => s.exerciseId === exerciseId);
     const nextNum = existingSets.length + 1;
 
@@ -158,7 +157,6 @@ export function Workout({ sessionId, onNavigate }) {
   }
 
   async function handleCompleteSet(setId, currentWeight, currentReps) {
-    // Save current input values first (in case onBlur didn't fire)
     const w = parseFloat(currentWeight) || 0;
     const r = parseFloat(currentReps) || 0;
     await updateSet(setId, { weight: w, reps: r });
@@ -172,7 +170,6 @@ export function Workout({ sessionId, onNavigate }) {
       ),
     );
 
-    // If toggling ON, show rest timer
     if (!wasDone) {
       setShowTimer(true);
     }
@@ -195,9 +192,6 @@ export function Workout({ sessionId, onNavigate }) {
     return <div class="page"><div class="empty-state">Loading...</div></div>;
   }
 
-  // Already added exercise IDs (for picker filtering)
-  const addedExerciseIds = new Set(sets.map((s) => s.exerciseId));
-
   return (
     <div class="page" style={{ paddingBottom: 'var(--space-8)' }}>
       {/* Header */}
@@ -210,8 +204,7 @@ export function Workout({ sessionId, onNavigate }) {
 
       {/* Exercise cards */}
       {groupedExercises.map(([exerciseId, exerciseSets]) => {
-        const exercise = exerciseMap.get(exerciseId);
-        const name = exercise ? exercise.name : 'Unknown';
+        const name = getExerciseLabel(exerciseId);
 
         return (
           <div key={exerciseId} class="exercise-card">
@@ -221,7 +214,7 @@ export function Workout({ sessionId, onNavigate }) {
             <div class="exercise-card__sets">
               <div class="exercise-card__sets-header">
                 <span>SET</span>
-                <span>KG</span>
+                <span>LBS</span>
                 <span>REPS</span>
                 <span></span>
               </div>
@@ -249,18 +242,9 @@ export function Workout({ sessionId, onNavigate }) {
       })}
 
       {/* Add exercise button */}
-      <button class="add-exercise-btn" onClick={() => setShowPicker(true)}>
+      <button class="add-exercise-btn" onClick={handleAddExercise}>
         + Add Exercise
       </button>
-
-      {/* Exercise picker modal */}
-      {showPicker && (
-        <ExercisePicker
-          exercises={exercises}
-          onSelect={handleAddExercise}
-          onClose={() => setShowPicker(false)}
-        />
-      )}
 
       {/* Rest timer overlay */}
       {showTimer && <RestTimer onClose={() => setShowTimer(false)} />}
@@ -273,7 +257,7 @@ function SetRow({ set, index, onUpdate, onComplete, onDelete }) {
   const [reps, setReps] = useState(String(set.reps || ''));
   const isDone = set.done;
 
-  // Sync from parent when set changes (e.g., auto-fill)
+  // Sync from parent when set changes
   useEffect(() => {
     setWeight(String(set.weight || ''));
     setReps(String(set.reps || ''));

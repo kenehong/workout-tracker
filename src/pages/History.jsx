@@ -48,7 +48,7 @@ export function History() {
             getSetsBySession(session.id),
           ]);
           const exerciseIds = [...new Set(sets.map((s) => s.exerciseId))];
-          const exerciseNames = exerciseIds.map((id) => exMap.get(id) || 'Unknown');
+          const exerciseNames = exerciseIds.map((id, i) => exMap.get(id) || `Exercise ${i + 1}`);
           detailMap[session.id] = { ...stats, exerciseNames };
         }),
       );
@@ -115,7 +115,7 @@ export function History() {
                     <span class="tabular">{detail.totalSets}</span> sets
                   </span>
                   <span>
-                    <span class="tabular">{detail.totalVolume.toLocaleString()}</span> kg
+                    <span class="tabular">{detail.totalVolume.toLocaleString()}</span> lbs
                   </span>
                 </div>
               </>
@@ -141,7 +141,7 @@ function ExpandedDetail({ sets, exerciseMap }) {
       seen.add(set.exerciseId);
       groups.push({
         exerciseId: set.exerciseId,
-        name: exerciseMap.get(set.exerciseId) || 'Unknown',
+        name: exerciseMap.get(set.exerciseId) || `Exercise ${groups.length + 1}`,
         sets: [],
       });
     }
@@ -158,7 +158,7 @@ function ExpandedDetail({ sets, exerciseMap }) {
             .map((set) => (
               <div key={set.id} class="history-detail__set">
                 <span class="tabular">Set {set.setNumber}</span>
-                <span class="tabular">{set.weight} kg</span>
+                <span class="tabular">{set.weight} lbs</span>
                 <span class="tabular">{set.reps} reps</span>
               </div>
             ))}

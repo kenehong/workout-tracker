@@ -837,3 +837,36 @@
 .timer__progress-bar--warning {
   background: var(--warning);
 }
+
+.timer__progress-bar--over {
+  width: 0% !important;
+}
+
+.timer__time--over {
+  color: var(--danger);
+  animation: pulse 0.8s ease-in-out infinite alternate;
+}
+
+.timer__over-label {
+  font-size: var(--font-title);
+  font-weight: 600;
+  color: var(--danger);
+  opacity: 0.85;
+}
+
+/* ========================================
+   Home page centering
+   ======================================== */
+
+.home-page {
+  display: flex;
+  flex-direction: column;
+}
+
+.home-start {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+}

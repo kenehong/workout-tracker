@@ -140,6 +140,19 @@ export async function getWeeklySummary() {
   return { dates, sessionCount: sessions.length };
 }
 
+export async function getMonthlySummary(year, month) {
+  const firstDay = formatDate(new Date(year, month, 1));
+  const lastDay = formatDate(new Date(year, month + 1, 0));
+
+  const sessions = await db.sessions
+    .where('date')
+    .between(firstDay, lastDay, true, true)
+    .toArray();
+
+  const dates = [...new Set(sessions.filter(s => s.status === 'completed').map(s => s.date))];
+  return { dates, sessionCount: dates.length };
+}
+
 export async function getExerciseHistory(exerciseId, limit = 10) {
   const sets = await db.sets
     .where('exerciseId')

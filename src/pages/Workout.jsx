@@ -1,4 +1,8 @@
-import { useState, useEffect, useRef } from 'preact/hooks';
+import { useState, useEffect, useRef } from 'react';
+import { Check, Circle, Plus } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { cn } from '@/lib/utils';
 import {
   getSession,
   finishSession,
@@ -10,7 +14,6 @@ import {
 } from '../db/repo.js';
 import { RestTimer } from '../components/RestTimer.jsx';
 
-// Format seconds to MM:SS
 function fmtTime(sec) {
   const m = Math.floor(sec / 60);
   const s = sec % 60;
@@ -23,11 +26,9 @@ export function Workout({ sessionId, onNavigate }) {
   const [elapsed, setElapsed] = useState(0);
   const [showTimer, setShowTimer] = useState(false);
   const [loading, setLoading] = useState(true);
-
   const startTimeRef = useRef(Date.now());
   const wakeLockRef = useRef(null);
 
-  // Load session data
   useEffect(() => {
     async function load() {
       try {
@@ -35,168 +36,119 @@ export function Workout({ sessionId, onNavigate }) {
           getSession(sessionId),
           getSetsBySession(sessionId),
         ]);
-
-        if (!sess) {
-          onNavigate('#/');
-          return;
-        }
-
+        if (!sess) { onNavigate('#/'); return; }
         setSession(sess);
         const sorted = allSets.sort((a, b) => a.setNumber - b.setNumber);
         setSets(sorted);
         startTimeRef.current = sess.startedAt;
-
-        // Auto-add first set if empty
         if (sorted.length === 0) {
           const newSet = await addSet(sessionId, sess.workoutType, 1, 0, 0);
           setSets([newSet]);
         }
-      } finally {
-        setLoading(false);
-      }
+      } finally { setLoading(false); }
     }
     load();
   }, [sessionId]);
 
-  // Elapsed timer
   useEffect(() => {
-    function tick() {
-      setElapsed(Math.floor((Date.now() - startTimeRef.current) / 1000));
-    }
+    function tick() { setElapsed(Math.floor((Date.now() - startTimeRef.current) / 1000)); }
     tick();
     const id = setInterval(tick, 1000);
     return () => clearInterval(id);
   }, []);
 
-  // Wake Lock
   useEffect(() => {
     async function acquireWakeLock() {
-      try {
-        if ('wakeLock' in navigator) {
-          wakeLockRef.current = await navigator.wakeLock.request('screen');
-        }
-      } catch {
-        // Silently ignore
-      }
+      try { if ('wakeLock' in navigator) wakeLockRef.current = await navigator.wakeLock.request('screen'); } catch {}
     }
     acquireWakeLock();
-
-    function onVisibilityChange() {
-      if (document.visibilityState === 'visible') {
-        acquireWakeLock();
-      }
-    }
-    document.addEventListener('visibilitychange', onVisibilityChange);
-
-    return () => {
-      document.removeEventListener('visibilitychange', onVisibilityChange);
-      if (wakeLockRef.current) {
-        wakeLockRef.current.release().catch(() => {});
-      }
-    };
+    function onVis() { if (document.visibilityState === 'visible') acquireWakeLock(); }
+    document.addEventListener('visibilitychange', onVis);
+    return () => { document.removeEventListener('visibilitychange', onVis); wakeLockRef.current?.release().catch(() => {}); };
   }, []);
 
   async function handleAddSet() {
     const nextNum = sets.length + 1;
-    let weight = 0;
-    let reps = 0;
-    if (sets.length > 0) {
-      const lastSet = sets[sets.length - 1];
-      weight = lastSet.weight;
-      reps = lastSet.reps;
-    }
-
-    const newSet = await addSet(sessionId, session.workoutType, nextNum, weight, reps);
-    setSets((prev) => [...prev, newSet]);
+    const last = sets[sets.length - 1];
+    const newSet = await addSet(sessionId, session.workoutType, nextNum, last?.weight || 0, last?.reps || 0);
+    setSets(prev => [...prev, newSet]);
   }
 
   async function handleUpdateSet(setId, field, value) {
     const numVal = parseFloat(value) || 0;
     await updateSet(setId, { [field]: numVal });
-    setSets((prev) =>
-      prev.map((s) => (s.id === setId ? { ...s, [field]: numVal } : s)),
-    );
+    setSets(prev => prev.map(s => s.id === setId ? { ...s, [field]: numVal } : s));
   }
 
   async function handleCompleteSet(setId, currentWeight, currentReps) {
     const w = parseFloat(currentWeight) || 0;
     const r = parseFloat(currentReps) || 0;
     await updateSet(setId, { weight: w, reps: r });
-
-    const set = sets.find((s) => s.id === setId);
+    const set = sets.find(s => s.id === setId);
     const wasDone = set?.done;
-
-    setSets((prev) =>
-      prev.map((s) =>
-        s.id === setId ? { ...s, weight: w, reps: r, done: !s.done } : s,
-      ),
-    );
-
-    if (!wasDone) {
-      setShowTimer(true);
-    }
+    setSets(prev => prev.map(s => s.id === setId ? { ...s, weight: w, reps: r, done: !s.done } : s));
+    if (!wasDone) setShowTimer(true);
   }
 
   async function handleDeleteSet(setId) {
     await deleteSet(setId);
-    setSets((prev) => prev.filter((s) => s.id !== setId));
+    setSets(prev => prev.filter(s => s.id !== setId));
   }
 
   async function handleFinish() {
     await finishSession(sessionId);
-    if (wakeLockRef.current) {
-      wakeLockRef.current.release().catch(() => {});
-    }
+    wakeLockRef.current?.release().catch(() => {});
     onNavigate('#/');
   }
 
   if (loading || !session) {
-    return <div class="page"><div class="empty-state">Loading...</div></div>;
+    return <div className="flex-1 p-4 flex items-center justify-center text-muted-foreground">Loading...</div>;
   }
 
   const workoutName = WORKOUT_ROTATION[session.workoutType] || '운동';
 
   return (
-    <div class="page" style={{ paddingBottom: 'var(--space-8)' }}>
+    <div className="flex-1 p-4 pb-8">
       {/* Header */}
-      <div class="workout-header">
-        <div class="workout-header__timer tabular">{fmtTime(elapsed)}</div>
-        <button class="btn btn--success" onClick={handleFinish}>
-          Finish
-        </button>
+      <div className="flex items-center justify-between py-3 mb-4 sticky top-0 bg-background z-40">
+        <div className="text-xl font-bold tabular-nums">{fmtTime(elapsed)}</div>
+        <Button variant="success" onClick={handleFinish}>Finish</Button>
       </div>
 
-      {/* Single exercise card */}
-      <div class="exercise-card">
-        <div class="exercise-card__header">
-          <span class="exercise-card__name">{workoutName}</span>
-        </div>
-        <div class="exercise-card__sets">
-          <div class="exercise-card__sets-header">
+      {/* Exercise card */}
+      <Card>
+        <CardHeader className="flex-row items-center justify-between border-b p-3 px-4 space-y-0">
+          <CardTitle className="text-base">{workoutName}</CardTitle>
+        </CardHeader>
+        <CardContent className="p-4 pt-2">
+          {/* Sets header */}
+          <div className="grid grid-cols-[40px_1fr_1fr_48px] items-center gap-2 py-2 text-xs text-muted-foreground font-medium text-center">
             <span>SET</span>
             <span>LBS</span>
             <span>REPS</span>
             <span></span>
           </div>
-          {sets
-            .sort((a, b) => a.setNumber - b.setNumber)
-            .map((set, idx) => (
-              <SetRow
-                key={set.id}
-                set={set}
-                index={idx + 1}
-                onUpdate={handleUpdateSet}
-                onComplete={handleCompleteSet}
-                onDelete={handleDeleteSet}
-              />
-            ))}
-          <button class="exercise-card__add-set" onClick={handleAddSet}>
-            + Add Set
-          </button>
-        </div>
-      </div>
 
-      {/* Rest timer overlay */}
+          {sets.sort((a, b) => a.setNumber - b.setNumber).map((set, idx) => (
+            <SetRow
+              key={set.id}
+              set={set}
+              index={idx + 1}
+              onUpdate={handleUpdateSet}
+              onComplete={handleCompleteSet}
+              onDelete={handleDeleteSet}
+            />
+          ))}
+
+          <button
+            className="flex items-center justify-center gap-2 w-full py-2 mt-1 text-primary text-sm font-medium rounded-md hover:bg-primary/10 transition-colors"
+            onClick={handleAddSet}
+          >
+            <Plus className="size-4" /> Add Set
+          </button>
+        </CardContent>
+      </Card>
+
       {showTimer && <RestTimer onClose={() => setShowTimer(false)} />}
     </div>
   );
@@ -212,51 +164,47 @@ function SetRow({ set, index, onUpdate, onComplete, onDelete }) {
     setReps(String(set.reps || ''));
   }, [set.weight, set.reps]);
 
-  function handleWeightBlur() {
-    onUpdate(set.id, 'weight', weight);
-  }
-
-  function handleRepsBlur() {
-    onUpdate(set.id, 'reps', reps);
-  }
-
   return (
-    <div class={`set-row ${isDone ? 'set-row--done' : ''}`}>
-      <span class="set-row__number tabular">{index}</span>
+    <div className={cn(
+      "grid grid-cols-[40px_1fr_1fr_48px] items-center gap-2 min-h-12 py-1 rounded-md transition-colors",
+      isDone && "bg-success/10"
+    )}>
+      <span className="text-sm font-semibold text-muted-foreground text-center tabular-nums">{index}</span>
       <input
         type="number"
         inputMode="decimal"
         placeholder="0"
         value={weight}
-        onInput={(e) => setWeight(e.target.value)}
-        onBlur={handleWeightBlur}
-        class="tabular"
+        onChange={e => setWeight(e.target.value)}
+        onBlur={() => onUpdate(set.id, 'weight', weight)}
         disabled={isDone}
+        className={cn(
+          "h-11 w-full rounded-md border border-input bg-transparent text-center text-base tabular-nums px-2 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50",
+          isDone && "opacity-70"
+        )}
       />
       <input
         type="number"
         inputMode="numeric"
         placeholder="0"
         value={reps}
-        onInput={(e) => setReps(e.target.value)}
-        onBlur={handleRepsBlur}
-        class="tabular"
+        onChange={e => setReps(e.target.value)}
+        onBlur={() => onUpdate(set.id, 'reps', reps)}
         disabled={isDone}
+        className={cn(
+          "h-11 w-full rounded-md border border-input bg-transparent text-center text-base tabular-nums px-2 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50",
+          isDone && "opacity-70"
+        )}
       />
       <button
-        class={`set-row__check ${isDone ? 'set-row__check--done' : ''}`}
+        className={cn(
+          "flex items-center justify-center size-11 rounded-md transition-all",
+          isDone ? "text-success bg-success/15" : "text-muted-foreground hover:bg-success/10 hover:text-success"
+        )}
         onClick={() => onComplete(set.id, weight, reps)}
         aria-label={isDone ? 'Mark incomplete' : 'Mark complete'}
       >
-        {isDone ? (
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="20 6 9 17 4 12" />
-          </svg>
-        ) : (
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="12" r="10" />
-          </svg>
-        )}
+        {isDone ? <Check className="size-5" strokeWidth={3} /> : <Circle className="size-5" />}
       </button>
     </div>
   );

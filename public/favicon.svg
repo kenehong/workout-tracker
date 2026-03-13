@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="96" fill="#0d6efd"/>
+  <!-- left plate -->
+  <rect x="88" y="160" width="40" height="192" rx="8" fill="#fff"/>
+  <rect x="128" y="192" width="24" height="128" rx="4" fill="#fff" opacity="0.7"/>
+  <!-- bar -->
+  <rect x="152" y="240" width="208" height="32" rx="6" fill="#fff" opacity="0.5"/>
+  <!-- right plate -->
+  <rect x="360" y="192" width="24" height="128" rx="4" fill="#fff" opacity="0.7"/>
+  <rect x="384" y="160" width="40" height="192" rx="8" fill="#fff"/>
+</svg>

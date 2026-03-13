@@ -1,0 +1,20 @@
+{
+  "name": "workout-tracker",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "dexie": "^4.3.0",
+    "preact": "^10.28.4",
+    "vite-plugin-pwa": "^1.2.0"
+  },
+  "devDependencies": {
+    "@preact/preset-vite": "^2.10.3",
+    "vite": "^8.0.0"
+  }
+}

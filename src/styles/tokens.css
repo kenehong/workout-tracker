@@ -1,0 +1,61 @@
+:root {
+  /* Colors - Light */
+  --bg: #ffffff;
+  --bg-subtle: #f8f9fa;
+  --bg-elevated: #ffffff;
+  --border: #e9ecef;
+  --text: #212529;
+  --text-muted: #6c757d;
+  --primary: #0d6efd;
+  --primary-subtle: #e7f1ff;
+  --success: #198754;
+  --success-subtle: #d1f5e0;
+  --danger: #dc3545;
+  --warning: #f59e0b;
+  --set-active: #fff3cd;
+  --set-done: #d1f5e0;
+
+  /* Typography */
+  --font: -apple-system, BlinkMacSystemFont, 'Pretendard', 'Segoe UI', Roboto, sans-serif;
+  --font-timer: 3rem;
+  --font-display: 1.75rem;
+  --font-title: 1.25rem;
+  --font-body: 1rem;
+  --font-caption: 0.875rem;
+
+  /* Spacing */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+
+  /* Radius */
+  --radius: 0.5rem;
+  --radius-lg: 0.75rem;
+
+  /* Shadow */
+  --shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+/* Dark mode (default for gym) */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #121212;
+    --bg-subtle: #1e1e1e;
+    --bg-elevated: #2a2a2a;
+    --border: #333333;
+    --text: #f0f0f0;
+    --text-muted: #a0a0a0;
+    --primary: #4d94ff;
+    --primary-subtle: #1a3a6b;
+    --success: #2dd47b;
+    --success-subtle: #1a3d2a;
+    --danger: #ff6b7a;
+    --warning: #fbbf24;
+    --set-active: #3d3200;
+    --set-done: #1a3d2a;
+    --shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  }
+}

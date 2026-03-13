@@ -3,7 +3,7 @@ import {
   getRecentSessions,
   getSessionStats,
   getSetsBySession,
-  getAllExercises,
+  WORKOUT_ROTATION,
 } from '../db/repo.js';
 
 function formatSessionDate(dateStr) {
@@ -19,7 +19,6 @@ export function History() {
   const [details, setDetails] = useState({});
   const [expandedId, setExpandedId] = useState(null);
   const [expandedSets, setExpandedSets] = useState([]);
-  const [exerciseMap, setExerciseMap] = useState(new Map());
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -28,28 +27,15 @@ export function History() {
 
   async function loadData() {
     try {
-      const [recent, exercises] = await Promise.all([
-        getRecentSessions(30),
-        getAllExercises(),
-      ]);
-
-      const exMap = new Map(exercises.map((e) => [e.id, e.name]));
-      setExerciseMap(exMap);
-
+      const recent = await getRecentSessions(30);
       const completed = recent.filter((s) => s.status === 'completed');
       setSessions(completed);
 
-      // Load stats for all sessions
       const detailMap = {};
       await Promise.all(
         completed.map(async (session) => {
-          const [stats, sets] = await Promise.all([
-            getSessionStats(session.id),
-            getSetsBySession(session.id),
-          ]);
-          const exerciseIds = [...new Set(sets.map((s) => s.exerciseId))];
-          const exerciseNames = exerciseIds.map((id, i) => exMap.get(id) || `Exercise ${i + 1}`);
-          detailMap[session.id] = { ...stats, exerciseNames };
+          const stats = await getSessionStats(session.id);
+          detailMap[session.id] = stats;
         }),
       );
       setDetails(detailMap);
@@ -66,10 +52,7 @@ export function History() {
     }
 
     const sets = await getSetsBySession(sessionId);
-    sets.sort((a, b) => {
-      if (a.exerciseId !== b.exerciseId) return 0;
-      return a.setNumber - b.setNumber;
-    });
+    sets.sort((a, b) => a.setNumber - b.setNumber);
     setExpandedId(sessionId);
     setExpandedSets(sets);
   }
@@ -94,6 +77,9 @@ export function History() {
       {sessions.map((session) => {
         const detail = details[session.id];
         const isExpanded = expandedId === session.id;
+        const workoutName = session.workoutType !== undefined
+          ? WORKOUT_ROTATION[session.workoutType]
+          : 'Unknown';
 
         return (
           <div
@@ -105,25 +91,20 @@ export function History() {
             <div class="session-card__date">
               {formatSessionDate(session.date)}
             </div>
+            <div class="session-card__exercises">{workoutName}</div>
             {detail && (
-              <>
-                <div class="session-card__exercises">
-                  {detail.exerciseNames.join(', ')}
-                </div>
-                <div class="session-card__stats">
-                  <span>
-                    <span class="tabular">{detail.totalSets}</span> sets
-                  </span>
-                  <span>
-                    <span class="tabular">{detail.totalVolume.toLocaleString()}</span> lbs
-                  </span>
-                </div>
-              </>
+              <div class="session-card__stats">
+                <span>
+                  <span class="tabular">{detail.totalSets}</span> sets
+                </span>
+                <span>
+                  <span class="tabular">{detail.totalVolume.toLocaleString()}</span> lbs
+                </span>
+              </div>
             )}
 
-            {/* Expanded detail */}
             {isExpanded && expandedSets.length > 0 && (
-              <ExpandedDetail sets={expandedSets} exerciseMap={exerciseMap} />
+              <ExpandedDetail sets={expandedSets} />
             )}
           </div>
         );
@@ -132,36 +113,14 @@ export function History() {
   );
 }
 
-function ExpandedDetail({ sets, exerciseMap }) {
-  // Group sets by exerciseId, maintaining order of first appearance
-  const groups = [];
-  const seen = new Set();
-  for (const set of sets) {
-    if (!seen.has(set.exerciseId)) {
-      seen.add(set.exerciseId);
-      groups.push({
-        exerciseId: set.exerciseId,
-        name: exerciseMap.get(set.exerciseId) || `Exercise ${groups.length + 1}`,
-        sets: [],
-      });
-    }
-    groups.find((g) => g.exerciseId === set.exerciseId).sets.push(set);
-  }
-
+function ExpandedDetail({ sets }) {
   return (
     <div class="history-detail" onClick={(e) => e.stopPropagation()}>
-      {groups.map((group) => (
-        <div key={group.exerciseId} class="history-detail__exercise">
-          <div class="history-detail__exercise-name">{group.name}</div>
-          {group.sets
-            .sort((a, b) => a.setNumber - b.setNumber)
-            .map((set) => (
-              <div key={set.id} class="history-detail__set">
-                <span class="tabular">Set {set.setNumber}</span>
-                <span class="tabular">{set.weight} lbs</span>
-                <span class="tabular">{set.reps} reps</span>
-              </div>
-            ))}
+      {sets.map((set) => (
+        <div key={set.id} class="history-detail__set">
+          <span class="tabular">Set {set.setNumber}</span>
+          <span class="tabular">{set.weight} lbs</span>
+          <span class="tabular">{set.reps} reps</span>
         </div>
       ))}
     </div>

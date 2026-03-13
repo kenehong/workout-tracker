@@ -1,5 +1,10 @@
 import { useState, useEffect } from 'preact/hooks';
-import { createSession, getWeeklySummary } from '../db/repo.js';
+import {
+  createSession,
+  getWeeklySummary,
+  getNextWorkoutType,
+  WORKOUT_ROTATION,
+} from '../db/repo.js';
 
 function formatDate(d) {
   const y = d.getFullYear();
@@ -28,13 +33,20 @@ function getWeekDays() {
 export function Home({ onNavigate }) {
   const [weekDates, setWeekDates] = useState([]);
   const [weekDays] = useState(getWeekDays);
+  const [nextWorkout, setNextWorkout] = useState('');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    getWeeklySummary().then((weekly) => {
+    async function load() {
+      const [weekly, nextType] = await Promise.all([
+        getWeeklySummary(),
+        getNextWorkoutType(),
+      ]);
       setWeekDates(weekly.dates || []);
+      setNextWorkout(WORKOUT_ROTATION[nextType]);
       setLoading(false);
-    });
+    }
+    load();
   }, []);
 
   async function handleStartWorkout() {
@@ -67,9 +79,12 @@ export function Home({ onNavigate }) {
 
       {/* Start button */}
       <div class="home-start">
-        <button class="btn btn--primary btn--lg" onClick={handleStartWorkout}>
-          Start Workout
-        </button>
+        <div class="home-start__inner">
+          <div class="home-start__next">Next: {nextWorkout}</div>
+          <button class="btn btn--primary btn--lg" onClick={handleStartWorkout}>
+            Start Workout
+          </button>
+        </div>
       </div>
     </div>
   );

@@ -1,14 +1,45 @@
 import db from './database.js';
 
+// --- Workout Rotation ---
+
+export const WORKOUT_ROTATION = [
+  '가슴',
+  '어깨',
+  '데드',
+  '복근',
+  '등',
+  '스쿼트',
+  '팔',
+];
+
+export async function getNextWorkoutType() {
+  // Find the last completed session to determine next workout type
+  const sessions = await db.sessions
+    .orderBy('startedAt')
+    .reverse()
+    .limit(20)
+    .toArray();
+
+  const lastCompleted = sessions.find((s) => s.status === 'completed' && s.workoutType !== undefined);
+
+  if (!lastCompleted) {
+    return 0; // Start with 가슴
+  }
+
+  return (lastCompleted.workoutType + 1) % WORKOUT_ROTATION.length;
+}
+
 // --- Sessions ---
 
 export async function createSession(date) {
+  const workoutType = await getNextWorkoutType();
   const session = {
     id: crypto.randomUUID(),
     date,
     startedAt: Date.now(),
     finishedAt: null,
     status: 'active',
+    workoutType,
   };
   await db.sessions.add(session);
   return session;
@@ -81,12 +112,10 @@ export async function getSessionStats(sessionId) {
 
   const totalVolume = sets.reduce((sum, s) => sum + s.weight * s.reps, 0);
   const totalSets = sets.length;
-  const exerciseIds = new Set(sets.map((s) => s.exerciseId));
 
   return {
     totalVolume,
     totalSets,
-    exerciseCount: exerciseIds.size,
   };
 }
 
@@ -117,7 +146,6 @@ export async function getExerciseHistory(exerciseId, limit = 10) {
     .equals(exerciseId)
     .toArray();
 
-  // Group by sessionId, get session dates, sort by most recent
   const sessionIds = [...new Set(sets.map((s) => s.sessionId))];
   const sessions = await Promise.all(
     sessionIds.map((id) => db.sessions.get(id)),
@@ -128,7 +156,6 @@ export async function getExerciseHistory(exerciseId, limit = 10) {
     if (session) sessionMap.set(session.id, session);
   }
 
-  // Build history grouped by session, sorted newest first
   const grouped = [];
   for (const sid of sessionIds) {
     const session = sessionMap.get(sid);

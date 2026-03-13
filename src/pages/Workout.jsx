@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'preact/hooks';
+import { useState, useEffect, useRef } from 'preact/hooks';
 import {
   getSession,
   finishSession,
@@ -6,6 +6,7 @@ import {
   updateSet,
   deleteSet,
   getSetsBySession,
+  WORKOUT_ROTATION,
 } from '../db/repo.js';
 import { RestTimer } from '../components/RestTimer.jsx';
 
@@ -41,8 +42,15 @@ export function Workout({ sessionId, onNavigate }) {
         }
 
         setSession(sess);
-        setSets(allSets.sort((a, b) => a.setNumber - b.setNumber));
+        const sorted = allSets.sort((a, b) => a.setNumber - b.setNumber);
+        setSets(sorted);
         startTimeRef.current = sess.startedAt;
+
+        // Auto-add first set if empty
+        if (sorted.length === 0) {
+          const newSet = await addSet(sessionId, sess.workoutType, 1, 0, 0);
+          setSets([newSet]);
+        }
       } finally {
         setLoading(false);
       }
@@ -88,63 +96,17 @@ export function Workout({ sessionId, onNavigate }) {
     };
   }, []);
 
-  // Group sets by exerciseId, preserving add order
-  const groupedExercises = useCallback(() => {
-    const orderMap = new Map();
-    const groups = new Map();
-
-    for (const set of sets) {
-      if (!groups.has(set.exerciseId)) {
-        groups.set(set.exerciseId, []);
-        orderMap.set(set.exerciseId, set.completedAt || 0);
-      }
-      groups.get(set.exerciseId).push(set);
-    }
-
-    const entries = [...groups.entries()];
-    entries.sort((a, b) => (orderMap.get(a[0]) || 0) - (orderMap.get(b[0]) || 0));
-    return entries;
-  }, [sets])();
-
-  // Get next exercise number
-  function getNextExerciseNumber() {
-    const usedIds = new Set(sets.map((s) => s.exerciseId));
-    return usedIds.size + 1;
-  }
-
-  // Get exercise label from exerciseId (which is the exercise number)
-  function getExerciseLabel(exerciseId) {
-    const allIds = [...new Set(sets.map((s) => s.exerciseId))].sort((a, b) => {
-      // Sort by first appearance
-      const aFirst = sets.find((s) => s.exerciseId === a);
-      const bFirst = sets.find((s) => s.exerciseId === b);
-      return (aFirst?.completedAt || 0) - (bFirst?.completedAt || 0);
-    });
-    const idx = allIds.indexOf(exerciseId);
-    return `Exercise ${idx + 1}`;
-  }
-
-  async function handleAddExercise() {
-    const exerciseNum = getNextExerciseNumber();
-    // Use exercise number as exerciseId (simple numeric)
-    const exerciseId = 9000 + exerciseNum; // Offset to avoid collision with seed exercises
-    const newSet = await addSet(sessionId, exerciseId, 1, 0, 0);
-    setSets((prev) => [...prev, newSet]);
-  }
-
-  async function handleAddSet(exerciseId) {
-    const existingSets = sets.filter((s) => s.exerciseId === exerciseId);
-    const nextNum = existingSets.length + 1;
-
+  async function handleAddSet() {
+    const nextNum = sets.length + 1;
     let weight = 0;
     let reps = 0;
-    if (existingSets.length > 0) {
-      const lastSet = existingSets[existingSets.length - 1];
+    if (sets.length > 0) {
+      const lastSet = sets[sets.length - 1];
       weight = lastSet.weight;
       reps = lastSet.reps;
     }
 
-    const newSet = await addSet(sessionId, exerciseId, nextNum, weight, reps);
+    const newSet = await addSet(sessionId, session.workoutType, nextNum, weight, reps);
     setSets((prev) => [...prev, newSet]);
   }
 
@@ -188,9 +150,11 @@ export function Workout({ sessionId, onNavigate }) {
     onNavigate('#/');
   }
 
-  if (loading) {
+  if (loading || !session) {
     return <div class="page"><div class="empty-state">Loading...</div></div>;
   }
+
+  const workoutName = WORKOUT_ROTATION[session.workoutType] || '운동';
 
   return (
     <div class="page" style={{ paddingBottom: 'var(--space-8)' }}>
@@ -202,49 +166,35 @@ export function Workout({ sessionId, onNavigate }) {
         </button>
       </div>
 
-      {/* Exercise cards */}
-      {groupedExercises.map(([exerciseId, exerciseSets]) => {
-        const name = getExerciseLabel(exerciseId);
-
-        return (
-          <div key={exerciseId} class="exercise-card">
-            <div class="exercise-card__header">
-              <span class="exercise-card__name">{name}</span>
-            </div>
-            <div class="exercise-card__sets">
-              <div class="exercise-card__sets-header">
-                <span>SET</span>
-                <span>LBS</span>
-                <span>REPS</span>
-                <span></span>
-              </div>
-              {exerciseSets
-                .sort((a, b) => a.setNumber - b.setNumber)
-                .map((set, idx) => (
-                  <SetRow
-                    key={set.id}
-                    set={set}
-                    index={idx + 1}
-                    onUpdate={handleUpdateSet}
-                    onComplete={handleCompleteSet}
-                    onDelete={handleDeleteSet}
-                  />
-                ))}
-              <button
-                class="exercise-card__add-set"
-                onClick={() => handleAddSet(exerciseId)}
-              >
-                + Add Set
-              </button>
-            </div>
+      {/* Single exercise card */}
+      <div class="exercise-card">
+        <div class="exercise-card__header">
+          <span class="exercise-card__name">{workoutName}</span>
+        </div>
+        <div class="exercise-card__sets">
+          <div class="exercise-card__sets-header">
+            <span>SET</span>
+            <span>LBS</span>
+            <span>REPS</span>
+            <span></span>
           </div>
-        );
-      })}
-
-      {/* Add exercise button */}
-      <button class="add-exercise-btn" onClick={handleAddExercise}>
-        + Add Exercise
-      </button>
+          {sets
+            .sort((a, b) => a.setNumber - b.setNumber)
+            .map((set, idx) => (
+              <SetRow
+                key={set.id}
+                set={set}
+                index={idx + 1}
+                onUpdate={handleUpdateSet}
+                onComplete={handleCompleteSet}
+                onDelete={handleDeleteSet}
+              />
+            ))}
+          <button class="exercise-card__add-set" onClick={handleAddSet}>
+            + Add Set
+          </button>
+        </div>
+      </div>
 
       {/* Rest timer overlay */}
       {showTimer && <RestTimer onClose={() => setShowTimer(false)} />}
@@ -257,7 +207,6 @@ function SetRow({ set, index, onUpdate, onComplete, onDelete }) {
   const [reps, setReps] = useState(String(set.reps || ''));
   const isDone = set.done;
 
-  // Sync from parent when set changes
   useEffect(() => {
     setWeight(String(set.weight || ''));
     setReps(String(set.reps || ''));

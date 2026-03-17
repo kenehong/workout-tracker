@@ -3,13 +3,13 @@ import db from './database.js';
 // --- Workout Rotation ---
 
 export const WORKOUT_ROTATION = [
-  '가슴',
-  '어깨',
-  '데드',
-  '복근',
-  '등',
-  '스쿼트',
-  '팔',
+  'Chest',
+  'Shoulders',
+  'Deadlift',
+  'Abs',
+  'Back',
+  'Squat',
+  'Arms',
 ];
 
 export async function getNextWorkoutType() {
@@ -31,8 +31,8 @@ export async function getNextWorkoutType() {
 
 // --- Sessions ---
 
-export async function createSession(date) {
-  const workoutType = await getNextWorkoutType();
+export async function createSession(date, overrideWorkoutType) {
+  const workoutType = overrideWorkoutType !== undefined ? overrideWorkoutType : await getNextWorkoutType();
   const session = {
     id: crypto.randomUUID(),
     date,
@@ -110,12 +110,12 @@ export async function getExercisesByCategory(category) {
 export async function getSessionStats(sessionId) {
   const sets = await getSetsBySession(sessionId);
 
-  const totalVolume = sets.reduce((sum, s) => sum + s.weight * s.reps, 0);
   const totalSets = sets.length;
+  const maxWeight = sets.reduce((max, s) => Math.max(max, s.weight || 0), 0);
 
   return {
-    totalVolume,
     totalSets,
+    maxWeight,
   };
 }
 

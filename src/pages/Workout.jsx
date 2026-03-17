@@ -105,7 +105,7 @@ export function Workout({ sessionId, onNavigate }) {
     return <div className="flex-1 p-4 flex items-center justify-center text-muted-foreground">Loading...</div>;
   }
 
-  const workoutName = WORKOUT_ROTATION[session.workoutType] || '운동';
+  const workoutName = WORKOUT_ROTATION[session.workoutType] || 'Workout';
 
   return (
     <div className="flex-1 p-4 pb-8">

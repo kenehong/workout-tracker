@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { ChevronLeft, ChevronRight, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import {
@@ -39,8 +39,11 @@ export function Home({ onNavigate }) {
   const [viewYear, setViewYear] = useState(now.getFullYear());
   const [viewMonth, setViewMonth] = useState(now.getMonth());
   const [workoutDates, setWorkoutDates] = useState([]);
-  const [nextWorkout, setNextWorkout] = useState('');
+  const [nextWorkoutIdx, setNextWorkoutIdx] = useState(0);
+  const [selectedIdx, setSelectedIdx] = useState(null);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
   const [loading, setLoading] = useState(true);
+  const dropdownRef = useRef(null);
 
   useEffect(() => {
     async function load() {
@@ -49,11 +52,23 @@ export function Home({ onNavigate }) {
         getNextWorkoutType(),
       ]);
       setWorkoutDates(monthly.dates);
-      setNextWorkout(WORKOUT_ROTATION[nextType]);
+      setNextWorkoutIdx(nextType);
+      setSelectedIdx(nextType);
       setLoading(false);
     }
     load();
   }, [viewYear, viewMonth]);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    function handleClick(e) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setDropdownOpen(false);
+      }
+    }
+    if (dropdownOpen) document.addEventListener('pointerdown', handleClick);
+    return () => document.removeEventListener('pointerdown', handleClick);
+  }, [dropdownOpen]);
 
   function prevMonth() {
     if (viewMonth === 0) { setViewYear(y => y - 1); setViewMonth(11); }
@@ -67,14 +82,20 @@ export function Home({ onNavigate }) {
 
   async function handleStartWorkout() {
     const today = formatDate(new Date());
-    const session = await createSession(today);
+    const session = await createSession(today, selectedIdx);
     onNavigate(`#/workout/${session.id}`);
+  }
+
+  function handleSelectWorkout(idx) {
+    setSelectedIdx(idx);
+    setDropdownOpen(false);
   }
 
   const days = getMonthDays(viewYear, viewMonth);
   const todayStr = formatDate(new Date());
   const monthLabel = new Date(viewYear, viewMonth).toLocaleDateString('en-US', { year: 'numeric', month: 'long' });
   const dayLabels = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+  const currentWorkout = selectedIdx !== null ? WORKOUT_ROTATION[selectedIdx] : '';
 
   if (loading) {
     return <div className="flex-1 p-4 pb-20 flex items-center justify-center text-muted-foreground">Loading...</div>;
@@ -136,11 +157,50 @@ export function Home({ onNavigate }) {
         }
       </div>
 
-      {/* Fixed bottom start button */}
+      {/* Fixed bottom split button */}
       <div className="fixed bottom-16 left-1/2 -translate-x-1/2 w-full max-w-[480px] px-4 pb-2 z-40">
-        <Button size="lg" className="w-full h-14 text-base font-bold" onClick={handleStartWorkout}>
-          Start — {nextWorkout}
-        </Button>
+        <div className="relative flex" ref={dropdownRef}>
+          {/* Main start button */}
+          <Button
+            size="lg"
+            className="flex-1 h-14 text-base font-bold rounded-r-none"
+            onClick={handleStartWorkout}
+          >
+            Start — {currentWorkout}
+          </Button>
+          {/* Dropdown toggle */}
+          <Button
+            size="lg"
+            className="h-14 px-3 rounded-l-none border-l border-primary-foreground/20"
+            onClick={() => setDropdownOpen(prev => !prev)}
+          >
+            <ChevronDown className={cn("size-5 transition-transform", dropdownOpen && "rotate-180")} />
+          </Button>
+
+          {/* Dropdown menu */}
+          {dropdownOpen && (
+            <div className="absolute bottom-full mb-2 left-0 right-0 bg-card border border-border rounded-lg shadow-lg overflow-hidden z-50">
+              {WORKOUT_ROTATION.map((name, idx) => (
+                <button
+                  key={idx}
+                  className={cn(
+                    "w-full text-left px-4 py-3 text-sm transition-colors",
+                    idx === selectedIdx
+                      ? "bg-primary/10 text-primary font-semibold"
+                      : "text-foreground hover:bg-accent",
+                    idx === nextWorkoutIdx && idx !== selectedIdx && "text-muted-foreground"
+                  )}
+                  onClick={() => handleSelectWorkout(idx)}
+                >
+                  <span>{name}</span>
+                  {idx === nextWorkoutIdx && (
+                    <span className="ml-2 text-xs text-muted-foreground">next</span>
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

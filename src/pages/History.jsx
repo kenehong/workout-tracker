@@ -121,7 +121,9 @@ export function History() {
             {detail && (
               <div className="flex gap-4 text-sm text-muted-foreground">
                 <span><span className="tabular-nums">{detail.totalSets}</span> sets</span>
-                <span><span className="tabular-nums">{detail.totalVolume.toLocaleString()}</span> lbs</span>
+                {detail.maxWeight > 0 && (
+                  <span>max <span className="tabular-nums">{detail.maxWeight}</span> lbs</span>
+                )}
               </div>
             )}
             {isExpanded && expandedSets.length > 0 && (

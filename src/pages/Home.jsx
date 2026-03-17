@@ -7,6 +7,7 @@ import {
   createSession,
   getMonthlySummary,
   getNextWorkoutType,
+  getWeeklyAverage,
   WORKOUT_ROTATION,
 } from '../db/repo.js';
 
@@ -42,6 +43,7 @@ export function Home({ onNavigate }) {
   const [nextWorkoutIdx, setNextWorkoutIdx] = useState(0);
   const [selectedIdx, setSelectedIdx] = useState(null);
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [weeklyAvg, setWeeklyAvg] = useState(null);
   const [loading, setLoading] = useState(true);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [sheetDate, setSheetDate] = useState(null);
@@ -49,13 +51,15 @@ export function Home({ onNavigate }) {
 
   useEffect(() => {
     async function load() {
-      const [monthly, nextType] = await Promise.all([
+      const [monthly, nextType, avg] = await Promise.all([
         getMonthlySummary(viewYear, viewMonth),
         getNextWorkoutType(),
+        getWeeklyAverage(),
       ]);
       setWorkoutDates(monthly.dates);
       setNextWorkoutIdx(nextType);
       setSelectedIdx(nextType);
+      setWeeklyAvg(avg);
       setLoading(false);
     }
     load();
@@ -161,7 +165,10 @@ export function Home({ onNavigate }) {
       {/* Monthly stats */}
       <div className="mt-4 text-center text-sm text-muted-foreground">
         {workoutDates.length > 0
-          ? <span><span className="font-semibold text-foreground tabular-nums">{workoutDates.length}</span> workouts this month</span>
+          ? <span>
+              <span className="font-semibold text-foreground tabular-nums">{workoutDates.length}</span> workouts
+              {weeklyAvg !== null && <span> · <span className="tabular-nums">{weeklyAvg}x</span>/week</span>}
+            </span>
           : <span>No workouts this month</span>
         }
       </div>

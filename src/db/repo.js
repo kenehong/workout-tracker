@@ -153,6 +153,23 @@ export async function getMonthlySummary(year, month) {
   return { dates, sessionCount: dates.length };
 }
 
+export async function getWeeklyAverage() {
+  const allSessions = await db.sessions
+    .where('status')
+    .equals('completed')
+    .toArray();
+
+  if (allSessions.length === 0) return null;
+
+  const dates = allSessions.map(s => new Date(s.date + 'T00:00:00').getTime());
+  const earliest = Math.min(...dates);
+  const now = Date.now();
+  const weeks = Math.max((now - earliest) / (7 * 24 * 60 * 60 * 1000), 1);
+  const avg = allSessions.length / weeks;
+
+  return Math.round(avg * 10) / 10;
+}
+
 export async function getExerciseHistory(exerciseId, limit = 10) {
   const sets = await db.sets
     .where('exerciseId')

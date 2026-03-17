@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { ChevronLeft, ChevronRight, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { HistorySheet } from '../components/HistorySheet.jsx';
 import {
   createSession,
   getMonthlySummary,
@@ -19,10 +20,9 @@ function formatDate(d) {
 function getMonthDays(year, month) {
   const firstDay = new Date(year, month, 1);
   const lastDay = new Date(year, month + 1, 0);
-  const startPad = (firstDay.getDay() + 6) % 7; // Monday-based
+  const startPad = (firstDay.getDay() + 6) % 7;
   const days = [];
 
-  // Padding for days before the 1st
   for (let i = 0; i < startPad; i++) {
     days.push(null);
   }
@@ -43,6 +43,8 @@ export function Home({ onNavigate }) {
   const [selectedIdx, setSelectedIdx] = useState(null);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [sheetDate, setSheetDate] = useState(null);
   const dropdownRef = useRef(null);
 
   useEffect(() => {
@@ -59,7 +61,6 @@ export function Home({ onNavigate }) {
     load();
   }, [viewYear, viewMonth]);
 
-  // Close dropdown on outside click
   useEffect(() => {
     function handleClick(e) {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
@@ -91,6 +92,13 @@ export function Home({ onNavigate }) {
     setDropdownOpen(false);
   }
 
+  function handleDateTap(dateStr) {
+    if (workoutDates.includes(dateStr)) {
+      setSheetDate(dateStr);
+      setSheetOpen(true);
+    }
+  }
+
   const days = getMonthDays(viewYear, viewMonth);
   const todayStr = formatDate(new Date());
   const monthLabel = new Date(viewYear, viewMonth).toLocaleDateString('en-US', { year: 'numeric', month: 'long' });
@@ -102,7 +110,7 @@ export function Home({ onNavigate }) {
   }
 
   return (
-    <div className="flex-1 p-4 pb-40 flex flex-col">
+    <div className="flex-1 p-4 pb-28 flex flex-col">
       <h2 className="mb-4 text-[1.75rem] font-bold tracking-tight">Workout</h2>
 
       {/* Month navigation */}
@@ -139,9 +147,10 @@ export function Home({ onNavigate }) {
               className={cn(
                 "relative flex items-center justify-center aspect-square rounded-lg text-sm tabular-nums transition-colors",
                 isToday && "ring-2 ring-primary",
-                hasWorkout && "bg-primary text-primary-foreground font-semibold",
+                hasWorkout && "bg-primary text-primary-foreground font-semibold cursor-pointer active:bg-primary/80",
                 !hasWorkout && !isToday && "text-muted-foreground",
               )}
+              onClick={() => handleDateTap(dateStr)}
             >
               {dayNum}
             </div>
@@ -158,9 +167,8 @@ export function Home({ onNavigate }) {
       </div>
 
       {/* Fixed bottom split button */}
-      <div className="fixed bottom-16 left-1/2 -translate-x-1/2 w-full max-w-[480px] px-4 pb-2 z-40">
+      <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[480px] px-4 pb-4 pt-2 z-40 bg-gradient-to-t from-background via-background to-transparent">
         <div className="relative flex" ref={dropdownRef}>
-          {/* Main start button */}
           <Button
             size="lg"
             className="flex-1 h-14 text-base font-bold rounded-r-none"
@@ -168,16 +176,14 @@ export function Home({ onNavigate }) {
           >
             Start — {currentWorkout}
           </Button>
-          {/* Dropdown toggle */}
           <Button
             size="lg"
-            className="h-14 px-3 rounded-l-none border-l border-primary-foreground/20"
+            className="h-14 w-11 px-0 rounded-l-none border-l border-primary-foreground/20 shrink-0"
             onClick={() => setDropdownOpen(prev => !prev)}
           >
-            <ChevronDown className={cn("size-5 transition-transform", dropdownOpen && "rotate-180")} />
+            <ChevronDown className={cn("size-4 transition-transform", dropdownOpen && "rotate-180")} />
           </Button>
 
-          {/* Dropdown menu */}
           {dropdownOpen && (
             <div className="absolute bottom-full mb-2 left-0 right-0 bg-card border border-border rounded-lg shadow-lg overflow-hidden z-50">
               {WORKOUT_ROTATION.map((name, idx) => (
@@ -202,6 +208,13 @@ export function Home({ onNavigate }) {
           )}
         </div>
       </div>
+
+      {/* History bottom sheet */}
+      <HistorySheet
+        open={sheetOpen}
+        onClose={() => setSheetOpen(false)}
+        scrollToDate={sheetDate}
+      />
     </div>
   );
 }

@@ -2,12 +2,12 @@ import { useState, useEffect, useRef } from 'react';
 import { ChevronLeft, ChevronRight, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { HistorySheet } from '../components/HistorySheet.jsx';
 import {
   createSession,
   getMonthlySummary,
   getNextWorkoutType,
   getWeeklyAverage,
+  getDayStats,
   WORKOUT_ROTATION,
 } from '../db/repo.js';
 
@@ -45,8 +45,8 @@ export function Home({ onNavigate }) {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [weeklyAvg, setWeeklyAvg] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [sheetOpen, setSheetOpen] = useState(false);
-  const [sheetDate, setSheetDate] = useState(null);
+  const [selectedDate, setSelectedDate] = useState(null);
+  const [dayStats, setDayStats] = useState(null);
   const dropdownRef = useRef(null);
 
   useEffect(() => {
@@ -76,11 +76,13 @@ export function Home({ onNavigate }) {
   }, [dropdownOpen]);
 
   function prevMonth() {
+    setSelectedDate(null); setDayStats(null);
     if (viewMonth === 0) { setViewYear(y => y - 1); setViewMonth(11); }
     else setViewMonth(m => m - 1);
   }
 
   function nextMonth() {
+    setSelectedDate(null); setDayStats(null);
     if (viewMonth === 11) { setViewYear(y => y + 1); setViewMonth(0); }
     else setViewMonth(m => m + 1);
   }
@@ -96,11 +98,17 @@ export function Home({ onNavigate }) {
     setDropdownOpen(false);
   }
 
-  function handleDateTap(dateStr) {
-    if (workoutDates.includes(dateStr)) {
-      setSheetDate(dateStr);
-      setSheetOpen(true);
+  async function handleDateTap(dateStr) {
+    if (!workoutDates.includes(dateStr)) return;
+    if (selectedDate === dateStr) {
+      // Deselect → back to default (today)
+      setSelectedDate(null);
+      setDayStats(null);
+      return;
     }
+    setSelectedDate(dateStr);
+    const stats = await getDayStats(dateStr);
+    setDayStats(stats);
   }
 
   const days = getMonthDays(viewYear, viewMonth);
@@ -145,14 +153,18 @@ export function Home({ onNavigate }) {
           const isToday = dateStr === todayStr;
           const hasWorkout = workoutDates.includes(dateStr);
 
+          const isSelected = dateStr === selectedDate;
+
           return (
             <div
               key={dateStr}
               className={cn(
-                "relative flex items-center justify-center aspect-square rounded-lg text-sm tabular-nums transition-colors",
-                isToday && "ring-2 ring-primary",
-                hasWorkout && "bg-primary text-primary-foreground font-semibold cursor-pointer active:bg-primary/80",
-                !hasWorkout && !isToday && "text-muted-foreground",
+                "relative flex items-center justify-center aspect-square rounded-lg text-sm tabular-nums transition-colors select-none",
+                isToday && !isSelected && "ring-2 ring-primary",
+                isSelected && "ring-2 ring-accent bg-accent/20 font-semibold",
+                hasWorkout && !isSelected && "bg-primary text-primary-foreground font-semibold cursor-pointer active:bg-primary/80",
+                hasWorkout && isSelected && "cursor-pointer",
+                !hasWorkout && "text-muted-foreground pointer-events-none",
               )}
               onClick={() => handleDateTap(dateStr)}
             >
@@ -162,15 +174,24 @@ export function Home({ onNavigate }) {
         })}
       </div>
 
-      {/* Monthly stats */}
+      {/* Stats area */}
       <div className="mt-4 text-center text-sm text-muted-foreground">
-        {workoutDates.length > 0
-          ? <span>
-              <span className="font-semibold text-foreground tabular-nums">{workoutDates.length}</span> workouts
-              {weeklyAvg !== null && <span> · <span className="tabular-nums">{weeklyAvg}x</span>/week</span>}
-            </span>
-          : <span>No workouts this month</span>
-        }
+        {selectedDate && dayStats ? (
+          <div className="flex items-center justify-center gap-3">
+            <span className="font-semibold text-foreground">{WORKOUT_ROTATION[dayStats.workoutType]}</span>
+            <span className="tabular-nums">{dayStats.durationStr}</span>
+            {dayStats.maxWeight > 0 && (
+              <span className="tabular-nums">{dayStats.maxWeight} lbs × {dayStats.maxWeightReps}</span>
+            )}
+          </div>
+        ) : workoutDates.length > 0 ? (
+          <span>
+            <span className="font-semibold text-foreground tabular-nums">{workoutDates.length}</span> workouts
+            {weeklyAvg !== null && <span> · <span className="tabular-nums">{weeklyAvg}x</span>/week</span>}
+          </span>
+        ) : (
+          <span>No workouts this month</span>
+        )}
       </div>
 
       {/* Fixed bottom split button */}
@@ -216,12 +237,6 @@ export function Home({ onNavigate }) {
         </div>
       </div>
 
-      {/* History bottom sheet */}
-      <HistorySheet
-        open={sheetOpen}
-        onClose={() => setSheetOpen(false)}
-        scrollToDate={sheetDate}
-      />
     </div>
   );
 }

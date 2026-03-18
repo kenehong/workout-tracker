@@ -200,6 +200,41 @@ export async function getExerciseHistory(exerciseId, limit = 10) {
   return grouped.slice(0, limit);
 }
 
+export async function getDayStats(date) {
+  const sessions = await db.sessions.where('date').equals(date).toArray();
+  const completed = sessions.filter(s => s.status === 'completed');
+  if (completed.length === 0) return null;
+
+  let totalDuration = 0;
+  let maxWeight = 0;
+  let maxWeightReps = 0;
+
+  for (const session of completed) {
+    if (session.startedAt && session.finishedAt) {
+      totalDuration += session.finishedAt - session.startedAt;
+    }
+    const sets = await getSetsBySession(session.id);
+    for (const set of sets) {
+      if ((set.weight || 0) > maxWeight) {
+        maxWeight = set.weight;
+        maxWeightReps = set.reps;
+      }
+    }
+  }
+
+  const totalMin = Math.floor(totalDuration / 60000);
+  const h = Math.floor(totalMin / 60);
+  const m = totalMin % 60;
+  const durationStr = h > 0 ? `${h}h ${m}m` : `${m}m`;
+
+  return {
+    durationStr,
+    maxWeight,
+    maxWeightReps,
+    workoutType: completed[0].workoutType,
+  };
+}
+
 // --- Helpers ---
 
 function formatDate(d) {

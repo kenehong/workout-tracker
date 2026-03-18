@@ -235,6 +235,32 @@ export async function getDayStats(date) {
   };
 }
 
+// --- Export / Import ---
+
+export async function exportAllData() {
+  const [exercises, sessions, sets] = await Promise.all([
+    db.exercises.toArray(),
+    db.sessions.toArray(),
+    db.sets.toArray(),
+  ]);
+  return JSON.stringify({ exercises, sessions, sets }, null, 2);
+}
+
+export async function importAllData(jsonString) {
+  const data = JSON.parse(jsonString);
+  if (!data.exercises || !data.sessions || !data.sets) {
+    throw new Error('Invalid backup file: missing exercises, sessions, or sets');
+  }
+  await db.transaction('rw', db.exercises, db.sessions, db.sets, async () => {
+    await db.exercises.clear();
+    await db.sessions.clear();
+    await db.sets.clear();
+    await db.exercises.bulkAdd(data.exercises);
+    await db.sessions.bulkAdd(data.sessions);
+    await db.sets.bulkAdd(data.sets);
+  });
+}
+
 // --- Helpers ---
 
 function formatDate(d) {

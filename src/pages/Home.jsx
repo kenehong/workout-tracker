@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef } from 'react';
-import { ChevronLeft, ChevronRight, ChevronDown } from 'lucide-react';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { ChevronLeft, ChevronRight, ChevronDown, Settings, Download, Upload } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import {
@@ -8,6 +8,8 @@ import {
   getNextWorkoutType,
   getWeeklyAverage,
   getDayStats,
+  exportAllData,
+  importAllData,
   WORKOUT_ROTATION,
 } from '../db/repo.js';
 
@@ -47,7 +49,10 @@ export function Home({ onNavigate }) {
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState(null);
   const [dayStats, setDayStats] = useState(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const dropdownRef = useRef(null);
+  const settingsRef = useRef(null);
+  const fileInputRef = useRef(null);
 
   useEffect(() => {
     async function load() {
@@ -74,6 +79,60 @@ export function Home({ onNavigate }) {
     if (dropdownOpen) document.addEventListener('pointerdown', handleClick);
     return () => document.removeEventListener('pointerdown', handleClick);
   }, [dropdownOpen]);
+
+  useEffect(() => {
+    function handleClick(e) {
+      if (settingsRef.current && !settingsRef.current.contains(e.target)) {
+        setSettingsOpen(false);
+      }
+    }
+    if (settingsOpen) document.addEventListener('pointerdown', handleClick);
+    return () => document.removeEventListener('pointerdown', handleClick);
+  }, [settingsOpen]);
+
+  const handleExport = useCallback(async () => {
+    try {
+      const json = await exportAllData();
+      const date = formatDate(new Date());
+      const blob = new Blob([json], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `workout-backup-${date}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      setSettingsOpen(false);
+    } catch (err) {
+      alert('Export failed: ' + err.message);
+    }
+  }, []);
+
+  const handleImport = useCallback(async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const text = await file.text();
+      await importAllData(text);
+      setSettingsOpen(false);
+      // Reload data
+      const [monthly, nextType, avg] = await Promise.all([
+        getMonthlySummary(viewYear, viewMonth),
+        getNextWorkoutType(),
+        getWeeklyAverage(),
+      ]);
+      setWorkoutDates(monthly.dates);
+      setNextWorkoutIdx(nextType);
+      setSelectedIdx(nextType);
+      setWeeklyAvg(avg);
+      setSelectedDate(null);
+      setDayStats(null);
+    } catch (err) {
+      alert('Import failed: ' + err.message);
+    } finally {
+      // Reset file input so the same file can be re-selected
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  }, [viewYear, viewMonth]);
 
   function prevMonth() {
     setSelectedDate(null); setDayStats(null);
@@ -123,7 +182,42 @@ export function Home({ onNavigate }) {
 
   return (
     <div className="flex-1 p-4 pb-28 flex flex-col">
-      <h2 className="mb-4 text-[1.75rem] font-bold tracking-tight">Workout</h2>
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-[1.75rem] font-bold tracking-tight">Workout</h2>
+        <div className="relative" ref={settingsRef}>
+          <button
+            onClick={() => setSettingsOpen(prev => !prev)}
+            className="p-2 -mr-2 rounded-md hover:bg-accent transition-colors"
+          >
+            <Settings className="size-5 text-muted-foreground" />
+          </button>
+          {settingsOpen && (
+            <div className="absolute top-full right-0 mt-1 w-44 bg-card border border-border rounded-lg shadow-lg overflow-hidden z-50">
+              <button
+                className="w-full flex items-center gap-2 px-4 py-3 text-sm text-foreground hover:bg-accent transition-colors"
+                onClick={handleExport}
+              >
+                <Download className="size-4" />
+                Export Backup
+              </button>
+              <button
+                className="w-full flex items-center gap-2 px-4 py-3 text-sm text-foreground hover:bg-accent transition-colors border-t border-border"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <Upload className="size-4" />
+                Import Backup
+              </button>
+            </div>
+          )}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".json"
+            className="hidden"
+            onChange={handleImport}
+          />
+        </div>
+      </div>
 
       {/* Month navigation */}
       <div className="flex items-center justify-between mb-3">

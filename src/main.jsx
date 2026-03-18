@@ -10,4 +10,9 @@ window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e)
   document.documentElement.classList.toggle('dark', e.matches);
 });
 
+// Request persistent storage to protect IndexedDB data from eviction
+if (navigator.storage && navigator.storage.persist) {
+  navigator.storage.persist();
+}
+
 createRoot(document.getElementById('app')).render(<App />);

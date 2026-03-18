@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { ChevronLeft, ChevronRight, ChevronDown, Settings } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import {
@@ -48,9 +48,7 @@ export function Home({ onNavigate }) {
   const [selectedDate, setSelectedDate] = useState(null);
   const [dayStats, setDayStats] = useState(null);
   const [rotation, setRotation] = useState([]);
-  const [settingsOpen, setSettingsOpen] = useState(false);
   const dropdownRef = useRef(null);
-  const settingsRef = useRef(null);
 
   useEffect(() => {
     async function load() {
@@ -75,13 +73,10 @@ export function Home({ onNavigate }) {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
         setDropdownOpen(false);
       }
-      if (settingsRef.current && !settingsRef.current.contains(e.target)) {
-        setSettingsOpen(false);
-      }
     }
-    if (dropdownOpen || settingsOpen) document.addEventListener('pointerdown', handleClick);
+    if (dropdownOpen) document.addEventListener('pointerdown', handleClick);
     return () => document.removeEventListener('pointerdown', handleClick);
-  }, [dropdownOpen, settingsOpen]);
+  }, [dropdownOpen]);
 
   function prevMonth() {
     setSelectedDate(null); setDayStats(null);
@@ -130,32 +125,7 @@ export function Home({ onNavigate }) {
 
   return (
     <div className="flex-1 p-4 pb-28 flex flex-col">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-[1.75rem] font-bold tracking-tight">Workout</h2>
-        {/* Settings gear */}
-        <div className="relative" ref={settingsRef}>
-          <button
-            onClick={() => setSettingsOpen((prev) => !prev)}
-            className="p-2 -mr-2 text-muted-foreground hover:text-foreground transition-colors"
-            aria-label="Settings"
-          >
-            <Settings className="size-5" />
-          </button>
-          {settingsOpen && (
-            <div className="absolute right-0 top-full mt-1 bg-card border-2 border-border shadow-lg overflow-hidden z-50 min-w-[160px]">
-              <button
-                className="w-full text-left px-4 py-3 text-sm font-semibold text-foreground hover:bg-accent/10 transition-colors"
-                onClick={() => {
-                  setSettingsOpen(false);
-                  onNavigate('#/setup');
-                }}
-              >
-                Edit Routine
-              </button>
-            </div>
-          )}
-        </div>
-      </div>
+      <h2 className="mb-4 text-[1.75rem] font-bold tracking-tight">Workout</h2>
 
       {/* Month navigation */}
       <div className="flex items-center justify-between mb-3">
@@ -264,6 +234,13 @@ export function Home({ onNavigate }) {
                   )}
                 </button>
               ))}
+              <div className="border-t border-border" />
+              <button
+                className="w-full text-left px-4 py-3 text-sm text-muted-foreground hover:bg-accent/10 transition-colors"
+                onClick={() => { setDropdownOpen(false); onNavigate('#/setup'); }}
+              >
+                Edit Routine
+              </button>
             </div>
           )}
         </div>

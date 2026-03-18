@@ -10,7 +10,7 @@ import {
   updateSet,
   deleteSet,
   getSetsBySession,
-  WORKOUT_ROTATION,
+  getWorkoutRotation,
 } from '../db/repo.js';
 import { RestTimer } from '../components/RestTimer.jsx';
 
@@ -26,18 +26,21 @@ export function Workout({ sessionId, onNavigate }) {
   const [elapsed, setElapsed] = useState(0);
   const [showTimer, setShowTimer] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [rotation, setRotation] = useState([]);
   const startTimeRef = useRef(Date.now());
   const wakeLockRef = useRef(null);
 
   useEffect(() => {
     async function load() {
       try {
-        const [sess, allSets] = await Promise.all([
+        const [sess, allSets, rot] = await Promise.all([
           getSession(sessionId),
           getSetsBySession(sessionId),
+          getWorkoutRotation(),
         ]);
         if (!sess) { onNavigate('#/'); return; }
         setSession(sess);
+        setRotation(rot);
         const sorted = allSets.sort((a, b) => a.setNumber - b.setNumber);
         setSets(sorted);
         startTimeRef.current = sess.startedAt;
@@ -105,7 +108,7 @@ export function Workout({ sessionId, onNavigate }) {
     return <div className="flex-1 p-4 flex items-center justify-center text-muted-foreground">Loading...</div>;
   }
 
-  const workoutName = WORKOUT_ROTATION[session.workoutType] || 'Workout';
+  const workoutName = rotation[session.workoutType] || 'Workout';
 
   return (
     <div className="flex-1 p-4 pb-8">

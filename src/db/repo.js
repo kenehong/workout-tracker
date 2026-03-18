@@ -12,7 +12,23 @@ export const WORKOUT_ROTATION = [
   'Arms',
 ];
 
+export async function getCustomRotation() {
+  const row = await db.settings.get('customRotation');
+  return row ? row.value : null;
+}
+
+export async function saveCustomRotation(items) {
+  await db.settings.put({ key: 'customRotation', value: items });
+}
+
+export async function getWorkoutRotation() {
+  const custom = await getCustomRotation();
+  return custom || WORKOUT_ROTATION;
+}
+
 export async function getNextWorkoutType() {
+  const rotation = await getWorkoutRotation();
+
   // Find the last completed session to determine next workout type
   const sessions = await db.sessions
     .orderBy('startedAt')
@@ -23,10 +39,10 @@ export async function getNextWorkoutType() {
   const lastCompleted = sessions.find((s) => s.status === 'completed' && s.workoutType !== undefined);
 
   if (!lastCompleted) {
-    return 0; // Start with 가슴
+    return 0;
   }
 
-  return (lastCompleted.workoutType + 1) % WORKOUT_ROTATION.length;
+  return (lastCompleted.workoutType + 1) % rotation.length;
 }
 
 // --- Sessions ---

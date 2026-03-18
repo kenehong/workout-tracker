@@ -7,7 +7,7 @@ import {
   getSessionStats,
   getSetsBySession,
   updateSet,
-  WORKOUT_ROTATION,
+  getWorkoutRotation,
 } from '../db/repo.js';
 
 function formatSessionDate(dateStr) {
@@ -37,15 +37,20 @@ export function HistorySheet({ open, onClose, scrollToDate }) {
   const [editReps, setEditReps] = useState('');
   const [loading, setLoading] = useState(true);
   const [visible, setVisible] = useState(false);
+  const [rotation, setRotation] = useState([]);
   const dateRefs = useRef({});
   const listRef = useRef(null);
 
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const recent = await getRecentSessions(100);
+      const [recent, rot] = await Promise.all([
+        getRecentSessions(100),
+        getWorkoutRotation(),
+      ]);
       const completed = recent.filter(s => s.status === 'completed');
       setSessions(completed);
+      setRotation(rot);
       const detailMap = {};
       await Promise.all(completed.map(async session => {
         detailMap[session.id] = await getSessionStats(session.id);
@@ -177,7 +182,7 @@ export function HistorySheet({ open, onClose, scrollToDate }) {
           {!loading && sessions.map(session => {
             const detail = details[session.id];
             const isExpanded = expandedId === session.id;
-            const workoutName = session.workoutType !== undefined ? WORKOUT_ROTATION[session.workoutType] : 'Unknown';
+            const workoutName = session.workoutType !== undefined ? (rotation[session.workoutType] || 'Unknown') : 'Unknown';
             const duration = formatDuration(session.startedAt, session.finishedAt);
             const isTarget = session.date === scrollToDate;
 

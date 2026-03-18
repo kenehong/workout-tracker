@@ -6,7 +6,7 @@ import {
   getSessionStats,
   getSetsBySession,
   updateSet,
-  WORKOUT_ROTATION,
+  getWorkoutRotation,
 } from '../db/repo.js';
 
 function formatSessionDate(dateStr) {
@@ -35,14 +35,19 @@ export function History() {
   const [editWeight, setEditWeight] = useState('');
   const [editReps, setEditReps] = useState('');
   const [loading, setLoading] = useState(true);
+  const [rotation, setRotation] = useState([]);
 
   useEffect(() => { loadData(); }, []);
 
   async function loadData() {
     try {
-      const recent = await getRecentSessions(30);
+      const [recent, rot] = await Promise.all([
+        getRecentSessions(30),
+        getWorkoutRotation(),
+      ]);
       const completed = recent.filter(s => s.status === 'completed');
       setSessions(completed);
+      setRotation(rot);
       const detailMap = {};
       await Promise.all(completed.map(async session => {
         detailMap[session.id] = await getSessionStats(session.id);
@@ -102,7 +107,7 @@ export function History() {
       {sessions.map(session => {
         const detail = details[session.id];
         const isExpanded = expandedId === session.id;
-        const workoutName = session.workoutType !== undefined ? WORKOUT_ROTATION[session.workoutType] : 'Unknown';
+        const workoutName = session.workoutType !== undefined ? (rotation[session.workoutType] || 'Unknown') : 'Unknown';
         const duration = formatDuration(session.startedAt, session.finishedAt);
 
         return (

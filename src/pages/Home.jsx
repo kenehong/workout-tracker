@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { ChevronLeft, ChevronRight, ChevronDown } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ChevronDown, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import {
@@ -8,7 +8,7 @@ import {
   getNextWorkoutType,
   getWeeklyAverage,
   getDayStats,
-  WORKOUT_ROTATION,
+  getWorkoutRotation,
 } from '../db/repo.js';
 
 function formatDate(d) {
@@ -47,19 +47,24 @@ export function Home({ onNavigate }) {
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState(null);
   const [dayStats, setDayStats] = useState(null);
+  const [rotation, setRotation] = useState([]);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const dropdownRef = useRef(null);
+  const settingsRef = useRef(null);
 
   useEffect(() => {
     async function load() {
-      const [monthly, nextType, avg] = await Promise.all([
+      const [monthly, nextType, avg, rot] = await Promise.all([
         getMonthlySummary(viewYear, viewMonth),
         getNextWorkoutType(),
         getWeeklyAverage(),
+        getWorkoutRotation(),
       ]);
       setWorkoutDates(monthly.dates);
       setNextWorkoutIdx(nextType);
       setSelectedIdx(nextType);
       setWeeklyAvg(avg);
+      setRotation(rot);
       setLoading(false);
     }
     load();
@@ -70,10 +75,13 @@ export function Home({ onNavigate }) {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
         setDropdownOpen(false);
       }
+      if (settingsRef.current && !settingsRef.current.contains(e.target)) {
+        setSettingsOpen(false);
+      }
     }
-    if (dropdownOpen) document.addEventListener('pointerdown', handleClick);
+    if (dropdownOpen || settingsOpen) document.addEventListener('pointerdown', handleClick);
     return () => document.removeEventListener('pointerdown', handleClick);
-  }, [dropdownOpen]);
+  }, [dropdownOpen, settingsOpen]);
 
   function prevMonth() {
     setSelectedDate(null); setDayStats(null);
@@ -101,7 +109,6 @@ export function Home({ onNavigate }) {
   async function handleDateTap(dateStr) {
     if (!workoutDates.includes(dateStr)) return;
     if (selectedDate === dateStr) {
-      // Deselect → back to default (today)
       setSelectedDate(null);
       setDayStats(null);
       return;
@@ -115,7 +122,7 @@ export function Home({ onNavigate }) {
   const todayStr = formatDate(new Date());
   const monthLabel = new Date(viewYear, viewMonth).toLocaleDateString('en-US', { year: 'numeric', month: 'long' });
   const dayLabels = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
-  const currentWorkout = selectedIdx !== null ? WORKOUT_ROTATION[selectedIdx] : '';
+  const currentWorkout = selectedIdx !== null && rotation[selectedIdx] ? rotation[selectedIdx] : '';
 
   if (loading) {
     return <div className="flex-1 p-4 pb-20 flex items-center justify-center text-muted-foreground">Loading...</div>;
@@ -125,6 +132,29 @@ export function Home({ onNavigate }) {
     <div className="flex-1 p-4 pb-28 flex flex-col">
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-[1.75rem] font-bold tracking-tight">Workout</h2>
+        {/* Settings gear */}
+        <div className="relative" ref={settingsRef}>
+          <button
+            onClick={() => setSettingsOpen((prev) => !prev)}
+            className="p-2 -mr-2 text-muted-foreground hover:text-foreground transition-colors"
+            aria-label="Settings"
+          >
+            <Settings className="size-5" />
+          </button>
+          {settingsOpen && (
+            <div className="absolute right-0 top-full mt-1 bg-card border-2 border-border shadow-lg overflow-hidden z-50 min-w-[160px]">
+              <button
+                className="w-full text-left px-4 py-3 text-sm font-semibold text-foreground hover:bg-accent/10 transition-colors"
+                onClick={() => {
+                  setSettingsOpen(false);
+                  onNavigate('#/setup');
+                }}
+              >
+                Edit Routine
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Month navigation */}
@@ -180,10 +210,10 @@ export function Home({ onNavigate }) {
       <div className="mt-4 text-center text-sm text-muted-foreground">
         {selectedDate && dayStats ? (
           <div className="flex items-center justify-center gap-3">
-            <span className="font-semibold text-foreground">{WORKOUT_ROTATION[dayStats.workoutType]}</span>
+            <span className="font-semibold text-foreground">{rotation[dayStats.workoutType] || 'Workout'}</span>
             <span className="tabular-nums">{dayStats.durationStr}</span>
             {dayStats.maxWeight > 0 && (
-              <span className="tabular-nums">{dayStats.maxWeight} lbs × {dayStats.maxWeightReps}</span>
+              <span className="tabular-nums">{dayStats.maxWeight} lbs x {dayStats.maxWeightReps}</span>
             )}
           </div>
         ) : workoutDates.length > 0 ? (
@@ -215,15 +245,15 @@ export function Home({ onNavigate }) {
           </Button>
 
           {dropdownOpen && (
-            <div className="absolute bottom-full mb-2 left-0 right-0 bg-card border border-border rounded-lg shadow-lg overflow-hidden z-50">
-              {WORKOUT_ROTATION.map((name, idx) => (
+            <div className="absolute bottom-full mb-2 left-0 right-0 bg-card border-2 border-border shadow-lg overflow-hidden z-50">
+              {rotation.map((name, idx) => (
                 <button
                   key={idx}
                   className={cn(
                     "w-full text-left px-4 py-3 text-sm transition-colors",
                     idx === selectedIdx
                       ? "bg-primary/10 text-primary font-semibold"
-                      : "text-foreground hover:bg-accent",
+                      : "text-foreground hover:bg-accent/10",
                     idx === nextWorkoutIdx && idx !== selectedIdx && "text-muted-foreground"
                   )}
                   onClick={() => handleSelectWorkout(idx)}

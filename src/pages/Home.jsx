@@ -21,7 +21,7 @@ function formatDate(d) {
 function getMonthDays(year, month) {
   const firstDay = new Date(year, month, 1);
   const lastDay = new Date(year, month + 1, 0);
-  const startPad = (firstDay.getDay() + 6) % 7;
+  const startPad = firstDay.getDay(); // Sunday = 0
   const days = [];
 
   for (let i = 0; i < startPad; i++) {
@@ -116,7 +116,7 @@ export function Home({ onNavigate }) {
   const days = getMonthDays(viewYear, viewMonth);
   const todayStr = formatDate(new Date());
   const monthLabel = new Date(viewYear, viewMonth).toLocaleDateString('en-US', { year: 'numeric', month: 'long' });
-  const dayLabels = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+  const dayLabels = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
   const currentWorkout = selectedIdx !== null && rotation[selectedIdx] ? rotation[selectedIdx] : '';
 
   if (loading) {
@@ -125,8 +125,6 @@ export function Home({ onNavigate }) {
 
   return (
     <div className="flex-1 p-4 pb-28 flex flex-col">
-      <h2 className="mb-4 text-[1.75rem] font-bold tracking-tight">Workout</h2>
-
       {/* Month navigation */}
       <div className="flex items-center justify-between mb-3">
         <button onClick={prevMonth} className="p-2 -ml-2 rounded-md hover:bg-accent transition-colors">

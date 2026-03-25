@@ -75,9 +75,9 @@ export function RestTimer({ onClose }) {
       </div>
 
       <div className="flex items-center gap-4">
-        <Button variant="outline" className="min-w-[100px] border-white/20 text-white hover:bg-white/10" onClick={() => handleAdjust(-30)}>-30s</Button>
+        <Button variant="outline" className="min-w-[100px] border-white/30 bg-white/10 text-white hover:bg-white/20" onClick={() => handleAdjust(-30)}>-30s</Button>
         <Button className="min-w-[100px]" onClick={onClose}>Skip</Button>
-        <Button variant="outline" className="min-w-[100px] border-white/20 text-white hover:bg-white/10" onClick={() => handleAdjust(30)}>+30s</Button>
+        <Button variant="outline" className="min-w-[100px] border-white/30 bg-white/10 text-white hover:bg-white/20" onClick={() => handleAdjust(30)}>+30s</Button>
       </div>
     </div>
   );

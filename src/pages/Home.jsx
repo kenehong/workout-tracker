@@ -9,6 +9,8 @@ import {
   getWeeklyAverage,
   getDayStats,
   getWorkoutRotation,
+  getTodayCompletedSession,
+  resumeSession,
 } from '../db/repo.js';
 
 function formatDate(d) {
@@ -48,21 +50,24 @@ export function Home({ onNavigate }) {
   const [selectedDate, setSelectedDate] = useState(null);
   const [dayStats, setDayStats] = useState(null);
   const [rotation, setRotation] = useState([]);
+  const [resumableSession, setResumableSession] = useState(null);
   const dropdownRef = useRef(null);
 
   useEffect(() => {
     async function load() {
-      const [monthly, nextType, avg, rot] = await Promise.all([
+      const [monthly, nextType, avg, rot, todayCompleted] = await Promise.all([
         getMonthlySummary(viewYear, viewMonth),
         getNextWorkoutType(),
         getWeeklyAverage(),
         getWorkoutRotation(),
+        getTodayCompletedSession(),
       ]);
       setWorkoutDates(monthly.dates);
       setNextWorkoutIdx(nextType);
       setSelectedIdx(nextType);
       setWeeklyAvg(avg);
       setRotation(rot);
+      setResumableSession(todayCompleted);
       setLoading(false);
     }
     load();
@@ -94,6 +99,12 @@ export function Home({ onNavigate }) {
     const today = formatDate(new Date());
     const session = await createSession(today, selectedIdx);
     onNavigate(`#/workout/${session.id}`);
+  }
+
+  async function handleResumeWorkout() {
+    if (!resumableSession) return;
+    await resumeSession(resumableSession.id);
+    onNavigate(`#/workout/${resumableSession.id}`);
   }
 
   function handleSelectWorkout(idx) {
@@ -197,13 +208,23 @@ export function Home({ onNavigate }) {
       {/* Fixed bottom split button */}
       <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[480px] px-4 pb-4 pt-2 z-40 bg-gradient-to-t from-background via-background to-transparent">
         <div className="relative flex" ref={dropdownRef}>
-          <Button
-            size="lg"
-            className="flex-1 h-14 text-base font-bold rounded-r-none"
-            onClick={handleStartWorkout}
-          >
-            Start — {currentWorkout}
-          </Button>
+          {resumableSession ? (
+            <Button
+              size="lg"
+              className="flex-1 h-14 text-base font-bold rounded-r-none"
+              onClick={handleResumeWorkout}
+            >
+              Resume — {rotation[resumableSession.workoutType] || 'Workout'}
+            </Button>
+          ) : (
+            <Button
+              size="lg"
+              className="flex-1 h-14 text-base font-bold rounded-r-none"
+              onClick={handleStartWorkout}
+            >
+              Start — {currentWorkout}
+            </Button>
+          )}
           <Button
             size="lg"
             className="h-14 w-11 px-0 rounded-l-none border-l border-primary-foreground/20 shrink-0"
@@ -214,6 +235,17 @@ export function Home({ onNavigate }) {
 
           {dropdownOpen && (
             <div className="absolute bottom-full mb-2 left-0 right-0 bg-card border-2 border-border shadow-lg overflow-hidden z-50">
+              {resumableSession && (
+                <>
+                  <button
+                    className="w-full text-left px-4 py-3 text-sm font-semibold text-foreground hover:bg-accent/10 transition-colors"
+                    onClick={() => { setDropdownOpen(false); handleStartWorkout(); }}
+                  >
+                    New — {currentWorkout}
+                  </button>
+                  <div className="border-t border-border" />
+                </>
+              )}
               {rotation.map((name, idx) => (
                 <button
                   key={idx}

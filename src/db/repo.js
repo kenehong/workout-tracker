@@ -61,11 +61,35 @@ export async function createSession(date, overrideWorkoutType) {
   return session;
 }
 
-export async function finishSession(sessionId) {
-  await db.sessions.update(sessionId, {
+export async function finishSession(sessionId, accumulatedTime) {
+  const updates = {
     finishedAt: Date.now(),
     status: 'completed',
+  };
+  if (accumulatedTime !== undefined) {
+    updates.accumulatedTime = accumulatedTime;
+  }
+  await db.sessions.update(sessionId, updates);
+}
+
+export async function resumeSession(sessionId) {
+  await db.sessions.update(sessionId, {
+    status: 'active',
+    finishedAt: null,
+    resumedAt: Date.now(),
   });
+}
+
+export async function getTodayCompletedSession() {
+  const today = formatDate(new Date());
+  const sessions = await db.sessions
+    .where('date')
+    .equals(today)
+    .toArray();
+  const completed = sessions
+    .filter(s => s.status === 'completed')
+    .sort((a, b) => (b.finishedAt || 0) - (a.finishedAt || 0));
+  return completed[0] || null;
 }
 
 export async function getSession(sessionId) {
@@ -226,7 +250,9 @@ export async function getDayStats(date) {
   let maxWeightReps = 0;
 
   for (const session of completed) {
-    if (session.startedAt && session.finishedAt) {
+    if (session.accumulatedTime) {
+      totalDuration += session.accumulatedTime;
+    } else if (session.startedAt && session.finishedAt) {
       totalDuration += session.finishedAt - session.startedAt;
     }
     const sets = await getSetsBySession(session.id);

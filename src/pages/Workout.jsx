@@ -28,6 +28,7 @@ export function Workout({ sessionId, onNavigate }) {
   const [loading, setLoading] = useState(true);
   const [rotation, setRotation] = useState([]);
   const startTimeRef = useRef(Date.now());
+  const accumulatedRef = useRef(0);
   const wakeLockRef = useRef(null);
 
   useEffect(() => {
@@ -43,7 +44,8 @@ export function Workout({ sessionId, onNavigate }) {
         setRotation(rot);
         const sorted = allSets.sort((a, b) => a.setNumber - b.setNumber);
         setSets(sorted);
-        startTimeRef.current = sess.startedAt;
+        accumulatedRef.current = sess.accumulatedTime || 0;
+        startTimeRef.current = sess.resumedAt || sess.startedAt;
         if (sorted.length === 0) {
           const newSet = await addSet(sessionId, sess.workoutType, 1, 0, 0);
           setSets([newSet]);
@@ -54,7 +56,7 @@ export function Workout({ sessionId, onNavigate }) {
   }, [sessionId]);
 
   useEffect(() => {
-    function tick() { setElapsed(Math.floor((Date.now() - startTimeRef.current) / 1000)); }
+    function tick() { setElapsed(Math.floor((accumulatedRef.current + Date.now() - startTimeRef.current) / 1000)); }
     tick();
     const id = setInterval(tick, 1000);
     return () => clearInterval(id);
@@ -99,7 +101,8 @@ export function Workout({ sessionId, onNavigate }) {
   }
 
   async function handleFinish() {
-    await finishSession(sessionId);
+    const totalMs = accumulatedRef.current + (Date.now() - startTimeRef.current);
+    await finishSession(sessionId, totalMs);
     wakeLockRef.current?.release().catch(() => {});
     onNavigate('#/');
   }

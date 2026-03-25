@@ -23,4 +23,12 @@ db.version(3).stores({
   settings: 'key',
 });
 
+// v4: accumulatedTime + resumedAt on sessions (data-only, no index changes)
+db.version(4).stores({
+  exercises: 'id, name, category',
+  sessions: 'id, date, startedAt, status, workoutType',
+  sets: 'id, sessionId, exerciseId, setNumber, completedAt',
+  settings: 'key',
+});
+
 export default db;
